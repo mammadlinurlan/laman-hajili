@@ -116,30 +116,6 @@ function BgMarqueeRow({ reverse = false }: Readonly<{ reverse?: boolean }>) {
   )
 }
 
-// ─── Vertical marquee (mobile editorial right column) ─────────────────────
-function VerticalMarquee() {
-  const items = ['DESIGN', '•', 'IDENTITY', '•', 'MOTION', '•', '2026', '•']
-  const set = [...items, ...items, ...items] // fill the column height
-  return (
-    <div className="absolute inset-0 flex justify-center overflow-hidden">
-      <motion.div
-        className="flex flex-col items-center gap-7"
-        animate={{ y: ['-50%', '0%'] }}
-        transition={{ duration: 24, ease: 'linear', repeat: Infinity }}
-      >
-        {[...set, ...set].map((w, i) => (
-          <span
-            key={`${w}-${i}`}
-            className="text-bg/85 font-display font-semibold text-lg select-none"
-            style={{ writingMode: 'vertical-rl', textOrientation: 'upright', letterSpacing: '0.05em' }}
-          >
-            {w}
-          </span>
-        ))}
-      </motion.div>
-    </div>
-  )
-}
 
 // ─── Hero ──────────────────────────────────────────────────────────────────
 export function Hero() {
@@ -227,56 +203,43 @@ export function Hero() {
         </AnimatePresence>
       </div>
 
-      {/* ── Mobile editorial layout — 75/25 split with vertical marquee ── */}
-      <div className="md:hidden relative z-20 flex min-h-screen w-full">
-        {/* Left column (≈75%): typography + buttons */}
-        <div className="flex-1 flex flex-col justify-between pl-6 pr-5 pt-28 pb-12">
-          {/* Top: eyebrow + status */}
-          <div className="flex flex-col items-start gap-3">
-            <div className="flex items-center gap-3">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent accent-glow" />
-              <p className="text-muted text-[10px] tracking-[0.3em] uppercase font-sans">
-                Graphic Designer
-              </p>
-            </div>
-          </div>
-
-          {/* Middle: name + bio */}
-          <div>
-            <h1 className="font-display text-black font-light leading-[0.88] tracking-[-0.02em] text-6xl">
-              Laman
-              <br />
-              Hajili
-            </h1>
-            <p className="text-muted text-[14px] leading-[1.7] font-sans mt-7 max-w-[16rem]">
-              Junior graphic designer crafting{' '}
-              <KeywordSpan word="branding" imageKey="branding" onActivate={setActiveKeyword} />,{' '}
-              <KeywordSpan word="packaging" imageKey="packaging" onActivate={setActiveKeyword} /> &amp;{' '}
-              <KeywordSpan word="motion" imageKey="motion" onActivate={setActiveKeyword} /> for
-              meaningful brand experiences.
-            </p>
-          </div>
-
-          {/* Bottom: stacked editorial buttons */}
-          <div className="flex flex-col gap-3 w-full">
-            <a
-              href="#work"
-              className="w-full text-center px-6 py-4 bg-accent text-bg text-[11px] tracking-[0.25em] uppercase font-sans"
-            >
-              View Work
-            </a>
-            <a
-              href="#contact"
-              className="w-full text-center px-6 py-4 border border-text text-text text-[11px] tracking-[0.25em] uppercase font-sans"
-            >
-              Get in Touch
-            </a>
-          </div>
+      {/* ── Mobile hero — clean workspace artboard layout ─── */}
+      <div className="md:hidden relative z-20 px-6 pt-8 pb-10">
+        <div className="flex items-center gap-3 mb-8">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent accent-glow" />
+          <p className="text-muted text-[10px] tracking-[0.3em] uppercase font-sans">
+            Graphic Designer
+          </p>
         </div>
 
-        {/* Right column (≈25%): solid indigo + vertical marquee */}
-        <div className="w-1/4 bg-accent relative overflow-hidden">
-          <VerticalMarquee />
+        <div className="mb-10">
+          <h1 className="font-display text-black font-light leading-[0.88] tracking-[-0.02em] text-[4.5rem]">
+            Laman
+            <br />
+            Hajili
+          </h1>
+          <p className="text-muted text-[14px] leading-[1.7] font-sans mt-6 max-w-88">
+            Junior graphic designer crafting{' '}
+            <KeywordSpan word="branding" imageKey="branding" onActivate={setActiveKeyword} />,{' '}
+            <KeywordSpan word="packaging" imageKey="packaging" onActivate={setActiveKeyword} /> &amp;{' '}
+            <KeywordSpan word="motion" imageKey="motion" onActivate={setActiveKeyword} /> for
+            meaningful brand experiences.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 w-full">
+          <a
+            href="#work"
+            className="w-full text-center px-6 py-4 bg-accent text-bg text-[11px] tracking-[0.25em] uppercase font-sans"
+          >
+            View Work
+          </a>
+          <a
+            href="#contact"
+            className="w-full text-center px-6 py-4 border border-text text-text text-[11px] tracking-[0.25em] uppercase font-sans"
+          >
+            Get in Touch
+          </a>
         </div>
       </div>
 

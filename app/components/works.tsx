@@ -6,6 +6,7 @@ import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'fra
 import type { MotionValue } from 'framer-motion'
 import type { Work } from '@/lib/works'
 import { CaseStudy } from './case-study'
+import { SelectionBox } from './selection-box'
 
 const ease = [0.22, 1, 0.36, 1] as const
 
@@ -108,17 +109,19 @@ function StackCard({
   progress: MotionValue<number>
   onOpen: () => void
 }>) {
-  // Earlier cards (lower in the deck) shrink more for a layered depth effect.
-  const targetScale = 1 - (total - 1 - index) * 0.035
+  // Cards lower in the deck (earlier index) shrink and dim the most.
+  // Scale shrinks by 6% per depth level; dim ramps from 0 → 0.55 as later cards cover this one.
+  const targetScale = 1 - (total - 1 - index) * 0.06
   const start = index / total
   const scale = useTransform(progress, [start, 1], [1, targetScale])
-  const dim = useTransform(progress, [start, 1], [0, 0.4])
+  const dim   = useTransform(progress, [start, 1], [0, 0.55])
 
   return (
-    <div className="sticky" style={{ top: `${96 + index * 12}px` }}>
+    // All cards share the same top-16 — they stack directly on top of each other.
+    <div className="sticky top-16">
       <motion.div
         style={{ scale }}
-        className="origin-top w-full bg-bg cursor-pointer pb-8"
+        className="origin-top w-full bg-white cursor-pointer pb-6"
         role="button"
         tabIndex={0}
         onClick={onOpen}
@@ -129,30 +132,32 @@ function StackCard({
           }
         }}
       >
-        <div className="relative aspect-[4/5] overflow-hidden ring-1 ring-border rounded-sm bg-surface">
-          {work.cover && (
-            <Image
-              src={work.cover}
-              alt={work.title}
-              fill
-              className="object-cover"
-              sizes="100vw"
+        <SelectionBox>
+          <div className="relative aspect-4/5 overflow-hidden ring-1 ring-border rounded-sm bg-surface">
+            {work.cover && (
+              <Image
+                src={work.cover}
+                alt={work.title}
+                fill
+                className="object-cover"
+                sizes="100vw"
+              />
+            )}
+            {/* Photoshop layer depth: dims as subsequent cards stack on top */}
+            <motion.div
+              className="absolute inset-0 bg-black pointer-events-none"
+              style={{ opacity: dim }}
             />
-          )}
-          {/* dim overlay as the card gets covered */}
-          <motion.div
-            className="absolute inset-0 bg-black pointer-events-none"
-            style={{ opacity: dim }}
-          />
-          {/* count badge */}
-          <div className="absolute top-3.5 right-3.5">
-            <span className="bg-[rgba(28,28,26,0.65)] text-accent-soft text-[9px] tracking-[0.15em] font-sans px-2 py-1 backdrop-blur-sm border border-white/10">
-              {String(work.images.length).padStart(2, '0')}
-            </span>
+            {/* Count badge */}
+            <div className="absolute top-3.5 right-3.5">
+              <span className="bg-[rgba(28,28,26,0.65)] text-accent-soft text-[9px] tracking-[0.15em] font-sans px-2 py-1 backdrop-blur-sm border border-white/10">
+                {String(work.images.length).padStart(2, '0')}
+              </span>
+            </div>
           </div>
-        </div>
+        </SelectionBox>
 
-        {/* Footer — left-aligned, tight, Hero-matched counter */}
+        {/* Footer */}
         <div className="pt-4 flex items-baseline justify-between gap-3">
           <div>
             <h3 className="font-display text-text text-3xl leading-[1.02] tracking-[-0.01em]">
@@ -200,12 +205,14 @@ export function Works({ works }: Readonly<{ works: Work[] }>) {
               Selected Work
             </p>
           </div>
-          <h2
-            className="font-display text-text leading-[0.95] font-light"
-            style={{ fontSize: 'clamp(2.4rem, 6vw, 5rem)' }}
-          >
-            Portfolio
-          </h2>
+          <SelectionBox className="inline-block">
+            <h2
+              className="font-display text-text leading-[0.95] font-light"
+              style={{ fontSize: 'clamp(2.4rem, 6vw, 5rem)' }}
+            >
+              Portfolio
+            </h2>
+          </SelectionBox>
         </div>
         <span className="text-dim text-[11px] tracking-widest font-sans shrink-0 mb-2">
           {String(works.length).padStart(2, '0')} Projects
