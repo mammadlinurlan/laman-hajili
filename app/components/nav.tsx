@@ -45,7 +45,7 @@ export function Nav() {
         initial={{ opacity: 0, y: -14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className={`fixed top-0 inset-x-0 z-[105] flex items-center justify-between px-6 md:px-10 py-4 md:py-5 transition-all duration-500 ${scrolled ? 'bg-bg/80 backdrop-blur-md border-b border-border' : ''
+        className={`fixed top-0 inset-x-0 z-[105] flex items-center justify-between px-6 md:px-10 pt-7 pb-4 md:py-5 transition-all duration-500 bg-bg/80 backdrop-blur-md border-b border-border ${scrolled ? '' : 'md:bg-transparent md:backdrop-blur-none md:border-transparent'
           }`}
       >
         <button
@@ -84,7 +84,7 @@ export function Nav() {
           onClick={() => setOpen(o => !o)}
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
-          className="md:hidden relative z-[110] flex flex-col items-end justify-center gap-1.5 w-8 h-8"
+          className="md:hidden relative z-[110] mr-2 flex flex-col items-center justify-center gap-1.5 w-8 h-8"
         >
           <span
             className={`block h-px bg-text transition-all duration-300 ${open ? 'w-6 translate-y-[3px] rotate-45' : 'w-6'}`}

@@ -42,7 +42,7 @@ export function Contact() {
       {/* glow */}
       <div
         className="absolute bottom-[-20%] left-1/2 -translate-x-1/2 w-[80vw] h-[50vw] pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(212,163,115,0.12) 0%, transparent 65%)' }}
+        style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.08) 0%, transparent 65%)' }}
       />
 
       <div className="relative z-10">
@@ -62,7 +62,7 @@ export function Contact() {
             <br />
             <span
               style={{
-                background: 'linear-gradient(90deg, #1C1C1A 0%, #D4A373 100%)',
+                background: 'linear-gradient(90deg, #111111 0%, #4F46E5 100%)',
                 WebkitBackgroundClip: 'text',
                 backgroundClip: 'text',
                 color: 'transparent',
