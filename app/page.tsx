@@ -1,6 +1,6 @@
 import { getAllWorks } from '@/lib/works'
 import { SmoothScroll } from './components/smooth-scroll'
-import { CursorGlow } from './components/cursor-glow'
+import { LuxuryCursor } from './components/luxury-cursor'
 import { ScrollFX } from './components/scroll-fx'
 import { Workspace } from './components/workspace'
 
@@ -11,7 +11,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#1e1e1e]">
       <SmoothScroll />
       <ScrollFX />
-      <CursorGlow />
+      <LuxuryCursor />
       <Workspace works={works} />
     </main>
   )

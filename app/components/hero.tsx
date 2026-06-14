@@ -1,29 +1,32 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { motion, useMotionValue, useSpring, useMotionTemplate, AnimatePresence } from 'framer-motion'
+import {
+  motion, useMotionValue, useSpring, useTransform,
+  useMotionTemplate, AnimatePresence,
+} from 'framer-motion'
 import { PenTool } from './pen-tool'
 
 const ease = [0.22, 1, 0.36, 1] as const
 
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.09, delayChildren: 0.2 } },
-}
 const fade = {
   hidden: { opacity: 0, y: 24 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.9, ease } },
-}
-const clip = {
-  hidden: { opacity: 0, y: 70 },
-  show: { opacity: 1, y: 0, transition: { duration: 1.1, ease } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.9, ease, delay: 0.6 } },
 }
 
-const BG_WORDS = [
-  'BRANDING', 'TYPOGRAPHY', 'IDENTITY', 'PACKAGING',
-  'MOTION', 'EDITORIAL', 'LAYOUT', 'COLOR THEORY',
-  'LOGOMARK', 'ART DIRECTION', 'GRID SYSTEMS', 'COMPOSITION',
-]
+// Premium load motion — Laman glides in from the left, Hajili rises from below,
+// both resolve from soft blur to sharp.
+const lamanV = {
+  hidden: { opacity: 0, x: -90, filter: 'blur(16px)' },
+  show: { opacity: 1, x: 0, filter: 'blur(0px)', transition: { duration: 1.2, ease } },
+}
+const hajiliV = {
+  hidden: { opacity: 0, y: 90, filter: 'blur(16px)' },
+  show: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 1.2, ease, delay: 0.16 } },
+}
+
+// Background spotlight typography
+const TYPE_ROWS = ['BRANDING', 'TYPOGRAPHY', 'IDENTITY', 'PACKAGING', 'MOTION', 'EDITORIAL']
 
 const KEYWORD_IMAGES: Record<string, string> = {
   branding: '/works/boreal-gin/first.jpg',
@@ -31,17 +34,15 @@ const KEYWORD_IMAGES: Record<string, string> = {
   motion: '/works/spotify-cover/first.jpg',
 }
 
-// ─── Available badge ───────────────────────────────────────────────────────
-
-
 // ─── Magnetic CTA button ───────────────────────────────────────────────────
 interface MagneticProps {
   readonly children: React.ReactNode
   readonly href: string
   readonly className: string
+  readonly cursorLabel?: string
 }
 
-function MagneticLink({ children, href, className }: Readonly<MagneticProps>) {
+function MagneticLink({ children, href, className, cursorLabel }: Readonly<MagneticProps>) {
   const ref = useRef<HTMLAnchorElement>(null)
   const x = useMotionValue(0)
   const y = useMotionValue(0)
@@ -60,10 +61,13 @@ function MagneticLink({ children, href, className }: Readonly<MagneticProps>) {
     <motion.a
       ref={ref}
       href={href}
+      data-cursor={cursorLabel}
       className={className}
       style={{ x: sx, y: sy }}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
+      whileHover={{ y: -3 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
     >
       {children}
     </motion.a>
@@ -92,75 +96,181 @@ function KeywordSpan({ word, imageKey, onActivate }: Readonly<KeywordProps>) {
   )
 }
 
-// ─── Background marquee row ────────────────────────────────────────────────
-function BgMarqueeRow({ reverse = false }: Readonly<{ reverse?: boolean }>) {
-  const words = [...BG_WORDS, ...BG_WORDS]
+// ─── Floating design-system decor (ultra-low-opacity, decorative only) ─────
+function DesignDecor() {
+  const float = (dur: number, dy: number, dr = 0) => ({
+    animate: { y: [0, dy, 0], rotate: [0, dr, 0] },
+    transition: { duration: dur, ease: 'easeInOut' as const, repeat: Infinity },
+  })
+  const stroke = 'rgba(17,17,17,0.55)'
+  const accent = 'rgba(79,70,229,0.75)'
+
   return (
-    <div className="flex whitespace-nowrap opacity-[0.028] overflow-hidden">
-      <motion.div
-        className="flex shrink-0"
-        animate={{ x: reverse ? ['-50%', '0%'] : ['0%', '-50%'] }}
-        transition={{ duration: 40, ease: 'linear', repeat: Infinity }}
+    <div className="absolute inset-0 z-[-5] pointer-events-none hidden md:block">
+      {/* Registration mark — top left */}
+      <motion.svg
+        className="absolute top-[16%] left-[8%] opacity-[0.10]"
+        width="46" height="46" viewBox="0 0 46 46" fill="none"
+        {...float(11, -10)}
       >
-        {words.map((w, i) => (
-          <span
-            key={`${w}-${i}`}
-            className="font-display font-light px-8 text-text select-none"
-            style={{ fontSize: 'clamp(3rem, 6vw, 5.5rem)', letterSpacing: '-0.01em' }}
-          >
-            {w}
-          </span>
-        ))}
-      </motion.div>
+        <circle cx="23" cy="23" r="11" stroke={stroke} strokeWidth="1" />
+        <path d="M23 1V45M1 23H45" stroke={stroke} strokeWidth="1" />
+      </motion.svg>
+
+      {/* Bezier curve + anchor handles — upper right */}
+      <motion.svg
+        className="absolute top-[20%] right-[16%] opacity-[0.12]"
+        width="150" height="90" viewBox="0 0 150 90" fill="none"
+        {...float(14, 12, 2)}
+      >
+        <path d="M6 84 C 40 6, 110 6, 144 84" stroke={accent} strokeWidth="1" />
+        <line x1="6" y1="84" x2="40" y2="20" stroke={stroke} strokeWidth="0.75" strokeDasharray="3 3" />
+        <line x1="144" y1="84" x2="110" y2="20" stroke={stroke} strokeWidth="0.75" strokeDasharray="3 3" />
+        <rect x="2" y="80" width="8" height="8" fill={accent} />
+        <rect x="140" y="80" width="8" height="8" fill={accent} />
+        <circle cx="40" cy="20" r="3" stroke={stroke} strokeWidth="1" fill="none" />
+        <circle cx="110" cy="20" r="3" stroke={stroke} strokeWidth="1" fill="none" />
+      </motion.svg>
+
+      {/* Measurement indicator — lower left */}
+      <motion.svg
+        className="absolute bottom-[22%] left-[12%] opacity-[0.11]"
+        width="130" height="20" viewBox="0 0 130 20" fill="none"
+        {...float(10, 8)}
+      >
+        <line x1="2" y1="10" x2="128" y2="10" stroke={stroke} strokeWidth="1" />
+        <line x1="2" y1="3" x2="2" y2="17" stroke={stroke} strokeWidth="1" />
+        <line x1="128" y1="3" x2="128" y2="17" stroke={stroke} strokeWidth="1" />
+        <line x1="65" y1="5" x2="65" y2="15" stroke={stroke} strokeWidth="0.75" />
+      </motion.svg>
+
+      {/* Corner guide bracket — lower right */}
+      <motion.svg
+        className="absolute bottom-[18%] right-[10%] opacity-[0.12]"
+        width="40" height="40" viewBox="0 0 40 40" fill="none"
+        {...float(13, -12, -2)}
+      >
+        <path d="M2 14V2H14" stroke={accent} strokeWidth="1" />
+        <path d="M38 26V38H26" stroke={accent} strokeWidth="1" />
+      </motion.svg>
+
+      {/* Plus / guide ticks — scattered */}
+      <motion.svg
+        className="absolute top-[58%] left-[46%] opacity-[0.10]"
+        width="18" height="18" viewBox="0 0 18 18" fill="none"
+        {...float(9, 6)}
+      >
+        <path d="M9 1V17M1 9H17" stroke={stroke} strokeWidth="1" />
+      </motion.svg>
     </div>
   )
 }
-
 
 // ─── Hero ──────────────────────────────────────────────────────────────────
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null)
   const [activeKeyword, setActiveKeyword] = useState<string | null>(null)
 
-  // Mouse-following blob
-  const rawX = useMotionValue(50)
-  const rawY = useMotionValue(50)
-  const blobX = useSpring(rawX, { stiffness: 50, damping: 20, mass: 0.5 })
-  const blobY = useSpring(rawY, { stiffness: 50, damping: 20, mass: 0.5 })
-  const blobBg = useMotionTemplate`radial-gradient(circle at ${blobX}% ${blobY}%, rgba(79,70,229,0.10) 0%, transparent 58%)`
+  // Normalised pointer (0..1) + raw pixel coords within the section.
+  const mvX = useMotionValue(0.5)
+  const mvY = useMotionValue(0.5)
+  const pxX = useMotionValue(0)
+  const pxY = useMotionValue(0)
+
+  // 1 — Spotlight that follows the cursor (smooth, lerped via spring).
+  const sbX = useSpring(mvX, { stiffness: 60, damping: 20, mass: 0.6 })
+  const sbY = useSpring(mvY, { stiffness: 60, damping: 20, mass: 0.6 })
+  const sbXpct = useTransform(sbX, v => `${v * 100}%`)
+  const sbYpct = useTransform(sbY, v => `${v * 100}%`)
+  const spotlight = useMotionTemplate`radial-gradient(620px circle at ${sbXpct} ${sbYpct}, rgba(79,70,229,0.13) 0%, rgba(79,70,229,0.04) 35%, transparent 62%)`
+
+  // 7 — Reveal mask for background typography (tracks cursor in px).
+  const rmX = useSpring(pxX, { stiffness: 140, damping: 24, mass: 0.4 })
+  const rmY = useSpring(pxY, { stiffness: 140, damping: 24, mass: 0.4 })
+  const revealMask = useMotionTemplate`radial-gradient(300px circle at ${rmX}px ${rmY}px, #000 0%, rgba(0,0,0,0.35) 50%, transparent 74%)`
+
+  // 2 — Luxury grid parallax (extremely subtle).
+  const gridX = useSpring(useTransform(mvX, [0, 1], [10, -10]), { stiffness: 50, damping: 18 })
+  const gridY = useSpring(useTransform(mvY, [0, 1], [10, -10]), { stiffness: 50, damping: 18 })
+
+  // 5 — 3D name-block tilt (max 3°).
+  const rotY = useSpring(useTransform(mvX, [0, 1], [3, -3]), { stiffness: 80, damping: 14 })
+  const rotX = useSpring(useTransform(mvY, [0, 1], [-3, 3]), { stiffness: 80, damping: 14 })
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const el = sectionRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
-      rawX.set(((e.clientX - rect.left) / rect.width) * 100)
-      rawY.set(((e.clientY - rect.top) / rect.height) * 100)
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
+      mvX.set(px / rect.width)
+      mvY.set(py / rect.height)
+      pxX.set(px)
+      pxY.set(py)
     }
     globalThis.addEventListener('mousemove', onMove)
     return () => globalThis.removeEventListener('mousemove', onMove)
-  }, [rawX, rawY])
+  }, [mvX, mvY, pxX, pxY])
 
   return (
     <section
       ref={sectionRef}
       className="relative isolate min-h-screen flex flex-col justify-center overflow-hidden md:px-10 md:pt-28 md:pb-20"
     >
-      {/* Designer grid overlay */}
-      <div className="absolute inset-0 pointer-events-none grid-overlay" />
+      {/* Luxury grid with subtle parallax depth */}
+      <motion.div
+        className="absolute -inset-8 pointer-events-none grid-overlay hidden md:block"
+        style={{ x: gridX, y: gridY }}
+      />
+      <div className="absolute inset-0 pointer-events-none grid-overlay md:hidden" />
 
       {/* Pen Tool — live vector-path mouse interaction (desktop only) */}
       <div className="absolute inset-0 pointer-events-none hidden md:block">
         <PenTool />
       </div>
 
-      {/* Mouse-follow blob (desktop only) */}
-      <motion.div className="absolute inset-0 pointer-events-none hidden md:block" style={{ background: blobBg }} />
+      {/* Background spotlight typography (revealed through the cursor mask) */}
+      <div className="absolute inset-0 -z-10 hidden md:flex flex-col justify-center gap-1 px-10 select-none overflow-hidden pointer-events-none">
+        {/* base — barely-there */}
+        <div className="absolute inset-0 flex flex-col justify-center gap-1 px-10">
+          {TYPE_ROWS.map(w => (
+            <span
+              key={`base-${w}`}
+              className="font-display font-light text-text leading-[0.95] opacity-[0.022]"
+              style={{ fontSize: 'clamp(3rem, 9vw, 9rem)', letterSpacing: '-0.02em' }}
+            >
+              {w}
+            </span>
+          ))}
+        </div>
+        {/* reveal — brighter copy unmasked only near the cursor */}
+        <motion.div
+          className="absolute inset-0 flex flex-col justify-center gap-1 px-10"
+          style={{ WebkitMaskImage: revealMask, maskImage: revealMask }}
+        >
+          {TYPE_ROWS.map(w => (
+            <span
+              key={`reveal-${w}`}
+              className="font-display font-light text-accent leading-[0.95] opacity-[0.10]"
+              style={{ fontSize: 'clamp(3rem, 9vw, 9rem)', letterSpacing: '-0.02em' }}
+            >
+              {w}
+            </span>
+          ))}
+        </motion.div>
+      </div>
+
+      {/* Cursor-following spotlight */}
+      <motion.div className="absolute inset-0 pointer-events-none hidden md:block z-[-1]" style={{ background: spotlight }} />
+
+      {/* Floating design-system decor */}
+      <DesignDecor />
 
       {/* Static accent glow top-right */}
       <div
-        className="absolute -top-24 right-[-8%] w-[55vw] h-[55vw] pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.07) 0%, transparent 65%)' }}
+        className="absolute -top-24 right-[-8%] w-[55vw] h-[55vw] pointer-events-none -z-10"
+        style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.06) 0%, transparent 65%)' }}
       />
 
       {/* Bottom fade */}
@@ -169,14 +279,8 @@ export function Hero() {
         style={{ background: 'linear-gradient(to bottom, transparent 0%, #F8F9FA 92%)' }}
       />
 
-      {/* Background marquee — desktop only (overlaps name on mobile) */}
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 -z-10 pointer-events-none select-none hidden md:flex flex-col gap-4">
-        <BgMarqueeRow />
-        <BgMarqueeRow reverse />
-      </div>
-
       {/* Hover-to-reveal preview — sits in the clean right-side workspace (desktop) */}
-      <div className="hidden lg:block absolute top-1/2 right-[7%] -translate-y-1/2 z-10 w-72 xl:w-80 aspect-[3/4] pointer-events-none">
+      <div className="hidden lg:block absolute top-1/2 right-[7%] -translate-y-1/2 z-10 w-72 xl:w-80 aspect-3/4 pointer-events-none">
         <AnimatePresence mode="wait">
           {activeKeyword && KEYWORD_IMAGES[activeKeyword] && (
             <motion.div
@@ -244,41 +348,42 @@ export function Hero() {
       </div>
 
       {/* Main content — desktop */}
-      <motion.div
-        className="hidden md:block relative z-20 w-full max-w-400 mx-auto"
-        variants={container}
-        initial="hidden"
-        animate="show"
-      >
-        {/* Eyebrow + Available badge */}
-
-        {/* Name */}
-        <div className="overflow-hidden pb-[0.06em]">
-          <motion.h1
-            variants={clip}
-            className="font-display text-text leading-[0.92] tracking-[-0.02em] font-light text-glow pb-[0.12em] text-5xl sm:text-7xl md:text-8xl lg:text-[11rem]"
-          >
-            Laman
-          </motion.h1>
-        </div>
-        <div className="overflow-hidden pb-[0.06em] mb-10 md:mb-14 md:pl-32">
-          <motion.h1
-            variants={clip}
-            className="font-display leading-[0.92] tracking-[-0.02em] font-light pb-[0.12em] text-5xl sm:text-7xl md:text-8xl lg:text-[11rem]"
-            style={{
-              background: 'linear-gradient(90deg, #111111 0%, #4F46E5 100%)',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              color: 'transparent',
-            }}
-          >
-            Hajili
-          </motion.h1>
-        </div>
+      <div className="hidden md:block relative z-20 w-full max-w-400 mx-auto" style={{ perspective: 1200 }}>
+        {/* Name — 3D tilt block */}
+        <motion.div style={{ rotateX: rotX, rotateY: rotY, transformStyle: 'preserve-3d' }}>
+          <div className="pb-[0.06em]">
+            <motion.h1
+              variants={lamanV}
+              initial="hidden"
+              animate="show"
+              className="font-display text-text leading-[0.92] tracking-[-0.02em] font-light text-glow pb-[0.12em] text-5xl sm:text-7xl md:text-8xl lg:text-[11rem]"
+            >
+              Laman
+            </motion.h1>
+          </div>
+          <div className="pb-[0.06em] mb-10 md:mb-14 md:pl-32">
+            <motion.h1
+              variants={hajiliV}
+              initial="hidden"
+              animate="show"
+              className="font-display leading-[0.92] tracking-[-0.02em] font-light pb-[0.12em] text-5xl sm:text-7xl md:text-8xl lg:text-[11rem]"
+              style={{
+                background: 'linear-gradient(90deg, #111111 0%, #4F46E5 100%)',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                color: 'transparent',
+              }}
+            >
+              Hajili
+            </motion.h1>
+          </div>
+        </motion.div>
 
         {/* Bio + magnetic CTAs */}
         <motion.div
           variants={fade}
+          initial="hidden"
+          animate="show"
           className="flex flex-col md:flex-row md:items-end justify-between gap-10 border-t border-border pt-8"
         >
           <p className="text-muted text-[15px] leading-[1.75] max-w-md font-sans">
@@ -292,19 +397,21 @@ export function Hero() {
           <div className="flex flex-col md:flex-row md:items-center gap-3 w-full md:w-auto shrink-0">
             <MagneticLink
               href="#work"
-              className="inline-flex items-center justify-center gap-2 w-full md:w-auto px-7 py-3.5 bg-accent text-bg text-[11px] tracking-[0.2em] uppercase font-sans hover:bg-accent-soft transition-colors duration-300"
+              cursorLabel="View"
+              className="inline-flex items-center justify-center gap-2 w-full md:w-auto px-7 py-3.5 bg-accent text-bg text-[11px] tracking-[0.2em] uppercase font-sans transition-[background-color,box-shadow] duration-300 hover:bg-accent-soft hover:shadow-[0_10px_30px_-8px_rgba(79,70,229,0.5)]"
             >
               View Work
             </MagneticLink>
             <MagneticLink
               href="#contact"
-              className="inline-flex items-center justify-center gap-2 w-full md:w-auto px-7 py-3.5 border border-border-strong text-text text-[11px] tracking-[0.2em] uppercase font-sans hover:bg-surface2 transition-all duration-300"
+              cursorLabel="Say hi"
+              className="inline-flex items-center justify-center gap-2 w-full md:w-auto px-7 py-3.5 border border-border-strong text-text text-[11px] tracking-[0.2em] uppercase font-sans transition-[border-color,background-color] duration-300 hover:border-accent hover:bg-surface2"
             >
               Get in Touch
             </MagneticLink>
           </div>
         </motion.div>
-      </motion.div>
+      </div>
     </section>
   )
 }

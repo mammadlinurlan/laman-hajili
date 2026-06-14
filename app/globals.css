@@ -66,6 +66,14 @@ section[id] { scroll-margin-top: 84px; }
   transition: opacity 0.4s ease;
 }
 
+/* ─── Luxury custom cursor — hide the native cursor on fine pointers ── */
+@media (pointer: fine) {
+  html.luxury-cursor-on,
+  html.luxury-cursor-on * {
+    cursor: none !important;
+  }
+}
+
 /* ─── Scroll progress bar ────────────────────────────────────────── */
 .scroll-progress {
   position: fixed;
