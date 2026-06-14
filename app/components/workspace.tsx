@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Move, BoxSelect, PenTool as PenIcon, Type,
   Eye, EyeOff, Minus, Square, X,
@@ -15,7 +16,7 @@ import { Skills } from './skills'
 import { Process } from './process'
 import { Contact } from './contact'
 
-// Adobe Photoshop app-icon badge: dark-navy square + brand-blue "Ps"
+// ─── Photoshop app-icon badge ──────────────────────────────────────────────
 function PsIcon({ size = 22 }: Readonly<{ size?: number }>) {
   return (
     <svg
@@ -42,13 +43,19 @@ function PsIcon({ size = 22 }: Readonly<{ size?: number }>) {
   )
 }
 
+// ─── Types ─────────────────────────────────────────────────────────────────
 type GroupKey = 'hero' | 'portfolio' | 'about' | 'contact'
 
+type MenuItemDef =
+  | { label: string; action?: string; disabled?: boolean }
+  | { sep: true }
+
+// ─── Static data ───────────────────────────────────────────────────────────
 const TOOLS = [
-  { id: 'V', label: 'Move Tool',    icon: Move,     target: '#hero',    group: 'hero'      as GroupKey },
-  { id: 'M', label: 'Marquee Tool', icon: BoxSelect, target: '#work',    group: 'portfolio' as GroupKey },
-  { id: 'P', label: 'Pen Tool',     icon: PenIcon,  target: '#about',   group: 'about'     as GroupKey },
-  { id: 'T', label: 'Type Tool',    icon: Type,     target: '#contact', group: 'contact'   as GroupKey },
+  { id: 'V', label: 'Move Tool',    icon: Move,      target: '#hero',    group: 'hero'      as GroupKey },
+  { id: 'M', label: 'Marquee Tool', icon: BoxSelect,  target: '#work',    group: 'portfolio' as GroupKey },
+  { id: 'P', label: 'Pen Tool',     icon: PenIcon,   target: '#about',   group: 'about'     as GroupKey },
+  { id: 'T', label: 'Type Tool',    icon: Type,      target: '#contact', group: 'contact'   as GroupKey },
 ]
 
 const LAYERS: { key: GroupKey; label: string; type: 'Group' | 'Layer' }[] = [
@@ -58,9 +65,48 @@ const LAYERS: { key: GroupKey; label: string; type: 'Group' | 'Layer' }[] = [
   { key: 'contact',   label: 'Contact',          type: 'Layer' },
 ]
 
-const MENUS = ['File', 'Edit', 'Image', 'Layer', 'Window', 'Help']
 const CV_URL = '/Leman%20Hajili%20-%20CV.pdf'
 
+const MENU_DEFS: Record<string, MenuItemDef[]> = {
+  File: [
+    { label: 'Download CV…',    action: 'downloadCV' },
+    { sep: true },
+    { label: 'Share Portfolio', action: 'share' },
+  ],
+  Edit: [
+    { label: 'Undo',            disabled: true },
+    { label: 'Redo',            disabled: true },
+    { sep: true },
+    { label: 'Preferences…',    disabled: true },
+  ],
+  Image: [
+    { label: 'Image Size…',     disabled: true },
+    { label: 'Canvas Size…',    disabled: true },
+    { sep: true },
+    { label: 'Trim…',           disabled: true },
+  ],
+  Layer: [
+    { label: 'New Layer',       disabled: true },
+    { label: 'Duplicate…',      disabled: true },
+    { sep: true },
+    { label: 'Flatten Workspace', action: 'flatten' },
+  ],
+  Window: [
+    { label: 'Toolbar',         action: 'toggleToolbar' },
+    { label: 'Layers Panel',    action: 'toggleLayers'  },
+    { sep: true },
+    { label: 'Reset Workspace', action: 'resetWorkspace' },
+  ],
+  Help: [
+    { label: 'About Laman Hajili',  disabled: true },
+    { sep: true },
+    { label: 'Keyboard Shortcuts',  disabled: true },
+  ],
+}
+
+const MENU_LABELS = Object.keys(MENU_DEFS)
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
 function scrollToTarget(sel: string) {
   const el = document.querySelector(sel)
   if (!el) return
@@ -68,11 +114,17 @@ function scrollToTarget(sel: string) {
   else el.scrollIntoView({ behavior: 'smooth' })
 }
 
+// ─── Workspace ─────────────────────────────────────────────────────────────
 export function Workspace({ works }: Readonly<{ works: Work[] }>) {
-  const [activeTool, setActiveTool] = useState('V')
-  const [visible, setVisible] = useState<Record<GroupKey, boolean>>({
+  const [activeTool,     setActiveTool]     = useState('V')
+  const [visible,        setVisible]        = useState<Record<GroupKey, boolean>>({
     hero: true, portfolio: true, about: true, contact: true,
   })
+  const [openMenu,       setOpenMenu]       = useState<string | null>(null)
+  const [showToolbar,    setShowToolbar]    = useState(true)
+  const [showLayersPanel, setShowLayersPanel] = useState(true)
+
+  const menuBarRef = useRef<HTMLElement>(null)
 
   const toggle = (key: GroupKey) =>
     setVisible(v => ({ ...v, [key]: !v[key] }))
@@ -82,6 +134,7 @@ export function Workspace({ works }: Readonly<{ works: Work[] }>) {
     scrollToTarget(target)
   }
 
+  // Sync active tool to section in viewport
   useEffect(() => {
     const ids = ['hero', 'work', 'about', 'contact']
     const map: Record<string, string> = { hero: 'V', work: 'M', about: 'P', contact: 'T' }
@@ -100,19 +153,128 @@ export function Workspace({ works }: Readonly<{ works: Work[] }>) {
     return () => obs.disconnect()
   }, [])
 
+  // Close dropdown when clicking outside the menu bar
+  useEffect(() => {
+    if (!openMenu) return
+    const handler = (e: MouseEvent) => {
+      if (!menuBarRef.current?.contains(e.target as Node)) setOpenMenu(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [openMenu])
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenMenu(null)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
+
+  const handleAction = (action: string) => {
+    setOpenMenu(null)
+    switch (action) {
+      case 'downloadCV':
+        window.open(CV_URL, '_blank')
+        break
+      case 'share':
+        navigator.clipboard?.writeText(globalThis.location.href)
+        break
+      case 'flatten':
+        setShowToolbar(false)
+        setShowLayersPanel(false)
+        break
+      case 'toggleToolbar':
+        setShowToolbar(v => !v)
+        break
+      case 'toggleLayers':
+        setShowLayersPanel(v => !v)
+        break
+      case 'resetWorkspace':
+        setShowToolbar(true)
+        setShowLayersPanel(true)
+        break
+    }
+  }
+
   const hide = (key: GroupKey) => (visible[key] ? '' : 'hidden')
 
   return (
     <div className="relative min-h-screen bg-[#1e1e1e]">
 
-      {/* ── Desktop Top App Bar ─────────────────────────────── */}
-      <header className="hidden md:flex fixed top-0 inset-x-0 h-8 bg-[#2b2b2b] border-b border-[#1a1a1a] items-center px-4 gap-4 text-xs text-gray-400 z-50">
+      {/* ── Desktop Top App Bar (with interactive dropdowns) ── */}
+      <header
+        ref={menuBarRef}
+        className="hidden md:flex fixed top-0 inset-x-0 h-8 bg-[#2b2b2b] border-b border-[#1a1a1a] items-center px-3 gap-1 text-xs text-gray-400 z-50"
+      >
         <PsIcon size={20} />
-        {MENUS.map(m => (
-          <button key={m} type="button" className="hover:text-white transition-colors">
-            {m}
-          </button>
+        <div className="w-2 shrink-0" />
+
+        {/* Menu triggers + dropdowns */}
+        {MENU_LABELS.map(label => (
+          <div key={label} className="relative">
+            <button
+              type="button"
+              aria-haspopup="true"
+              aria-expanded={openMenu === label}
+              onClick={() => setOpenMenu(o => (o === label ? null : label))}
+              className={`px-2.5 py-1 rounded-sm transition-colors select-none ${
+                openMenu === label
+                  ? 'bg-[#3d3d3d] text-white'
+                  : 'hover:bg-[#3d3d3d] hover:text-white'
+              }`}
+            >
+              {label}
+            </button>
+
+            <AnimatePresence>
+              {openMenu === label && (
+                <motion.div
+                  role="menu"
+                  initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0,  scale: 1     }}
+                  exit={{    opacity: 0, y: -6, scale: 0.97  }}
+                  transition={{ duration: 0.11, ease: 'easeOut' }}
+                  className="absolute top-full left-0 mt-0.5 w-44 bg-[#2b2b2b] border border-[#1a1a1a] shadow-2xl py-1 z-60"
+                >
+                  {MENU_DEFS[label].map((item, i) => {
+                    if ('sep' in item) {
+                      return <hr key={`${label}-sep-${i}`} className="border-[#3a3a3a] my-1 mx-2" />
+                    }
+                    const isChecked =
+                      (item.action === 'toggleToolbar'    && showToolbar) ||
+                      (item.action === 'toggleLayers'     && showLayersPanel)
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        role="menuitem"
+                        disabled={item.disabled}
+                        onClick={() => item.action && handleAction(item.action)}
+                        className={`w-full text-left flex items-center gap-2 px-3 py-1.25 transition-colors ${
+                          item.disabled
+                            ? 'text-gray-600 cursor-default text-[11px]'
+                            : 'text-gray-200 hover:bg-[#1473e6] hover:text-white cursor-pointer text-[11px]'
+                        }`}
+                      >
+                        <span className="w-3 shrink-0 text-[10px] text-blue-400">
+                          {isChecked ? '✓' : ''}
+                        </span>
+                        {item.label}
+                        {item.action === 'downloadCV' && (
+                          <span className="ml-auto text-[9px] text-gray-500">PDF</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         ))}
+
+        {/* Window controls */}
         <div className="ml-auto flex items-center gap-4 text-gray-500">
           <Minus size={13} className="hover:text-white transition-colors cursor-pointer" />
           <Square size={11} className="hover:text-white transition-colors cursor-pointer" />
@@ -137,67 +299,71 @@ export function Workspace({ works }: Readonly<{ works: Work[] }>) {
         </div>
       </header>
 
-      {/* ── Desktop Left Toolbar ───────────────────────────── */}
-      <aside className="hidden md:flex fixed left-0 top-8 bottom-0 w-14 bg-[#2b2b2b] border-r border-[#1a1a1a] flex-col items-center py-4 gap-2 z-50">
-        {TOOLS.map(t => {
-          const Icon = t.icon
-          const on = activeTool === t.id
-          return (
-            <button
-              key={t.id}
-              type="button"
-              title={`${t.label} (${t.id})`}
-              onClick={() => selectTool(t.id, t.target)}
-              className={`relative w-9 h-9 grid place-items-center rounded-sm transition-colors ${
-                on ? 'bg-[#3a3a3a] text-blue-500' : 'text-gray-400 hover:text-white hover:bg-[#333]'
-              }`}
-            >
-              <Icon size={18} />
-              <span className="absolute bottom-0.5 right-1 text-[8px] text-gray-500">{t.id}</span>
-            </button>
-          )
-        })}
-      </aside>
-
-      {/* ── Desktop Right Layers Panel ─────────────────────── */}
-      <aside className="hidden md:flex fixed right-0 top-8 bottom-0 w-64 bg-[#2b2b2b] border-l border-[#1a1a1a] flex-col z-50 text-xs text-gray-300">
-        <div className="h-9 border-b border-[#1a1a1a] flex items-center px-3 gap-4 shrink-0">
-          <span className="text-white border-b-2 border-blue-500 pb-1.5 -mb-px">Layers</span>
-          <span className="text-gray-500 hover:text-gray-300 cursor-pointer">Channels</span>
-          <span className="text-gray-500 hover:text-gray-300 cursor-pointer">Paths</span>
-        </div>
-        <div className="px-3 py-2 border-b border-[#1a1a1a] text-[11px] text-gray-500 flex items-center gap-2 shrink-0">
-          <LayersIcon size={12} /> Normal · 100%
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {LAYERS.map(l => (
-            <div
-              key={l.key}
-              className="flex items-center gap-2.5 px-3 py-2.5 border-b border-[#252525] hover:bg-[#343434] transition-colors"
-            >
+      {/* ── Desktop Left Toolbar (hideable via Window menu) ── */}
+      {showToolbar && (
+        <aside className="hidden md:flex fixed left-0 top-8 bottom-0 w-14 bg-[#2b2b2b] border-r border-[#1a1a1a] flex-col items-center py-4 gap-2 z-50">
+          {TOOLS.map(t => {
+            const Icon = t.icon
+            const on = activeTool === t.id
+            return (
               <button
+                key={t.id}
                 type="button"
-                aria-label={`Toggle ${l.label}`}
-                onClick={() => toggle(l.key)}
-                className="shrink-0 text-gray-400 hover:text-white transition-colors"
+                title={`${t.label} (${t.id})`}
+                onClick={() => selectTool(t.id, t.target)}
+                className={`relative w-9 h-9 grid place-items-center rounded-sm transition-colors ${
+                  on ? 'bg-[#3a3a3a] text-blue-500' : 'text-gray-400 hover:text-white hover:bg-[#333]'
+                }`}
               >
-                {visible[l.key]
-                  ? <Eye size={15} />
-                  : <EyeOff size={15} className="text-gray-600" />}
+                <Icon size={18} />
+                <span className="absolute bottom-0.5 right-1 text-[8px] text-gray-500">{t.id}</span>
               </button>
-              <span className="shrink-0">
-                {l.type === 'Group'
-                  ? <Folder size={14} className="text-blue-400/80" />
-                  : <FileText size={13} className="text-amber-400/80" />}
-              </span>
-              <span className={`text-[11px] leading-tight truncate ${visible[l.key] ? 'text-gray-200' : 'text-gray-600'}`}>
-                {l.label}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="h-8 border-t border-[#1a1a1a] shrink-0" />
-      </aside>
+            )
+          })}
+        </aside>
+      )}
+
+      {/* ── Desktop Right Layers Panel (hideable via Window menu) ── */}
+      {showLayersPanel && (
+        <aside className="hidden md:flex fixed right-0 top-8 bottom-0 w-64 bg-[#2b2b2b] border-l border-[#1a1a1a] flex-col z-50 text-xs text-gray-300">
+          <div className="h-9 border-b border-[#1a1a1a] flex items-center px-3 gap-4 shrink-0">
+            <span className="text-white border-b-2 border-blue-500 pb-1.5 -mb-px">Layers</span>
+            <span className="text-gray-500 hover:text-gray-300 cursor-pointer">Channels</span>
+            <span className="text-gray-500 hover:text-gray-300 cursor-pointer">Paths</span>
+          </div>
+          <div className="px-3 py-2 border-b border-[#1a1a1a] text-[11px] text-gray-500 flex items-center gap-2 shrink-0">
+            <LayersIcon size={12} /> Normal · 100%
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {LAYERS.map(l => (
+              <div
+                key={l.key}
+                className="flex items-center gap-2.5 px-3 py-2.5 border-b border-[#252525] hover:bg-[#343434] transition-colors"
+              >
+                <button
+                  type="button"
+                  aria-label={`Toggle ${l.label}`}
+                  onClick={() => toggle(l.key)}
+                  className="shrink-0 text-gray-400 hover:text-white transition-colors"
+                >
+                  {visible[l.key]
+                    ? <Eye size={15} />
+                    : <EyeOff size={15} className="text-gray-600" />}
+                </button>
+                <span className="shrink-0">
+                  {l.type === 'Group'
+                    ? <Folder size={14} className="text-blue-400/80" />
+                    : <FileText size={13} className="text-amber-400/80" />}
+                </span>
+                <span className={`text-[11px] leading-tight truncate ${visible[l.key] ? 'text-gray-200' : 'text-gray-600'}`}>
+                  {l.label}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="h-8 border-t border-[#1a1a1a] shrink-0" />
+        </aside>
+      )}
 
       {/* ── Mobile Bottom Toolbar Dock ──────────────────────── */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 h-12 bg-[#2b2b2b] border-t border-[#1a1a1a] flex items-center justify-around z-50">
@@ -222,17 +388,24 @@ export function Workspace({ works }: Readonly<{ works: Work[] }>) {
       </nav>
 
       {/* ── Canvas + Artboard ─────────────────────────────────
-          Mobile: pt-10 pb-12 clears the two fixed bars.
-          Desktop: pt-8 pl-14 pr-64 clears the three fixed panels.   */}
-      <div className="pt-10 pb-12 md:pt-8 md:pb-0 md:pl-14 md:pr-64 min-h-screen">
+          Left/right padding collapses when panels are toggled off via Window menu.
+          Mobile: pt-10 pb-12 clears fixed top/bottom bars.
+          Desktop: pt-8 + dynamic pl/pr tracks open panels.              */}
+      <div
+        className={`pt-10 pb-12 md:pt-8 md:pb-0 min-h-screen transition-all duration-300 ease-in-out ${
+          showToolbar     ? 'md:pl-14' : 'md:pl-0'
+        } ${
+          showLayersPanel ? 'md:pr-64' : 'md:pr-0'
+        }`}
+      >
         <div className="px-3 py-3 md:p-6">
 
           {/* White artboard.
-              md:overflow-hidden clips hero decorative bleed on desktop.
-              Mobile has NO overflow-hidden so position:sticky (card deck) works.  */}
+              md:overflow-hidden clips hero bleed + preserves rounded corners on desktop.
+              No overflow-hidden on mobile so position:sticky (card deck) works.      */}
           <div className="bg-white rounded-sm shadow-md md:shadow-2xl md:overflow-hidden md:max-w-5xl md:mx-auto">
 
-            {/* PSD document label bar */}
+            {/* PSD document title bar */}
             <div className="h-6 md:h-7 flex items-center justify-center bg-[#ebebeb] border-b border-[#d4d4d4] font-sans md:sticky md:top-8 md:z-30">
               <span className="md:hidden text-[10px] text-gray-500">Laman_Portfolio.psd</span>
               <span className="hidden md:inline text-[11px] text-gray-600">
